@@ -24,6 +24,9 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <spring.profiles.active>dev</spring.profiles.active>
 
+        <!-- git tag 版本号默认值（无 git 或无 tag 时的回退值，插件运行后会自动覆盖） -->
+        <git.closest.tag.name>unknown</git.closest.tag.name>
+
         <!-- 依赖版本 -->
         <jjwt.version>0.12.5</jjwt.version>
         <commonmark.version>0.22.0</commonmark.version>
@@ -209,7 +212,7 @@
     </dependencies>
 
     <build>
-        <finalName>blog-backend-${project.version}</finalName>
+        <finalName>blog-backend-${git.closest.tag.name}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
@@ -263,6 +266,10 @@
                     <generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties</generateGitPropertiesFilename>
                     <failOnNoGitDirectory>false</failOnNoGitDirectory>
                     <failOnUnableToExtractRepoInfo>false</failOnUnableToExtractRepoInfo>
+                    <!-- 识别轻量标签（git tag v2.0.5）而不仅是附注标签（git tag -a） -->
+                    <gitDescribe>
+                        <tags>true</tags>
+                    </gitDescribe>
                     <includeOnlyProperties>
                         <includeOnlyProperty>^git.closest.tag.name$</includeOnlyProperty>
                         <includeOnlyProperty>^git.commit.id.abbrev$</includeOnlyProperty>
