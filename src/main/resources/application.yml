@@ -1,0 +1,116 @@
+# =====================================================
+# Spring Boot 主配置文件
+# 项目: 星光小栈
+# =====================================================
+
+spring:
+  profiles:
+    active: @spring.profiles.active@  # Maven占位符,由打包参数决定
+
+  application:
+    name: blog-backend
+
+  # Servlet配置
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
+
+  # Jackson配置
+  jackson:
+    time-zone: Asia/Shanghai
+    # date-format: yyyy-MM-DD HH:mm:ss  # 注释掉，使用自定义反序列化器
+    default-property-inclusion: non_null
+
+# 服务器配置
+server:
+  port: 8080
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.blog: DEBUG
+    org.springframework.web: INFO
+    org.hibernate: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n'
+    file: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n'
+  file:
+    name: ${blog.data.path}/logs/blog-backend.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 30
+      total-size-cap: 1GB
+
+# SpringDoc (Swagger) 配置
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  info:
+    title: 星光小栈 API 文档
+    description: 星光小栈博客系统RESTful API文档
+    contact:
+      name: 星光小栈
+      email: admin@blog.com
+
+# 自定义配置
+blog:
+  # 基础URL（根据环境配置）
+  base-url: ${BLOG_BASE_URL:http://localhost:8080}
+
+  # 数据存储路径
+  data:
+    path: ${BLOG_DATA_PATH:C:/blog-data}
+    articles: ${blog.data.path}/articles
+    images: ${blog.data.path}/images
+    uploads: ${blog.data.path}/uploads
+    avatars: ${blog.data.path}/avatars
+    themes: ${blog.data.path}/themes
+
+  # 文件上传配置
+  upload:
+    max-file-size: 10MB
+    allowed-image-types: image/jpeg,image/png,image/gif,image/webp
+    allowed-file-types: .md,.txt,.pdf
+
+  # JWT配置
+  jwt:
+    secret: ${JWT_SECRET:please-set-your-jwt-secret-in-environment-variable}
+    expiration: 604800000  # 7天(毫秒)
+    refresh-expiration: 2592000000  # 30天(毫秒)
+
+  # CORS配置
+  cors:
+    allowed-origins: '*'
+    allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+    allowed-headers: '*'
+    allow-credentials: false
+    max-age: 3600
+
+  # 限流配置
+  rate-limit:
+    comment-per-minute: 3
+    message-per-minute: 3
+    login-per-hour: 10
+
+  # 静态文件服务配置
+  static-file:
+    # 是否启用Spring Boot静态文件服务 (开发环境: true, 生产环境使用Nginx: false)
+    enabled: true
+    # 静态文件URL路径前缀
+    url-path: /files
+    # 缓存时间(秒) 开发环境: 0(不缓存), 生产环境: 2592000(30天)
+    cache-period: 0

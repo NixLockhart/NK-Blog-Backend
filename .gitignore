@@ -1,0 +1,74 @@
+# =====================================================
+# Build
+# =====================================================
+target/
+*.class
+*.jar
+*.jar.original
+*.war
+
+# =====================================================
+# IDE
+# =====================================================
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# VS Code
+.vscode/
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# =====================================================
+# Environment & Secrets
+# =====================================================
+# Production config contains real passwords/secrets
+application-prod.yml
+**/application-prod.yml
+
+# Environment variable files
+*.env
+.env.*
+
+# =====================================================
+# Claude Code
+# =====================================================
+.claude/
+
+# =====================================================
+# Temporary / Debug files
+# =====================================================
+# Root-level SQL scripts (temp/debug only, Flyway migrations are preserved)
+/*.sql
+!src/main/resources/db/migration/*.sql
+
+# Misc
+nul
+
+# =====================================================
+# OS generated files
+# =====================================================
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# =====================================================
+# Logs
+# =====================================================
+*.log
+logs/
+
+# =====================================================
+# Maven
+# =====================================================
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar

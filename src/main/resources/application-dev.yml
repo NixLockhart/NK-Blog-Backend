@@ -1,0 +1,76 @@
+# =====================================================
+# 开发环境配置
+# =====================================================
+
+spring:
+  # 数据源配置
+  datasource:
+    url: jdbc:mysql://localhost:3306/db_nix_blog?useUnicode=true&useSSL=true&serverTimezone=Asia/Shanghai
+    username: root
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      pool-name: BlogHikariCP
+
+  # JPA配置
+  jpa:
+    hibernate:
+      ddl-auto: none  # 使用Flyway管理数据库,关闭Hibernate自动DDL验证
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        use_sql_comments: true
+    open-in-view: false
+
+  # Flyway配置
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    encoding: UTF-8
+    validate-on-migrate: true
+
+  # Redis配置
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+
+  # 缓存配置
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=1000,expireAfterWrite=300s
+
+# 开发环境数据路径(Windows)
+blog:
+  # 开发环境基础URL
+  base-url: http://localhost:8080
+
+  data:
+    path: C:/blog-data
+
+# 日志配置
+logging:
+  level:
+    com.blog: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
