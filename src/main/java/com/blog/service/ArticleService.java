@@ -49,9 +49,9 @@ public interface ArticleService {
     void incrementLikes(Long id);
 
     /**
-     * 获取文章列表（管理端，分页）
+     * 获取文章列表（管理端，分页，支持搜索和筛选）
      */
-    PageResult<ArticleListResponse> getArticleListForAdmin(Pageable pageable);
+    PageResult<ArticleListResponse> getArticleListForAdmin(Pageable pageable, String keyword, Long categoryId, Integer status);
 
     /**
      * 获取文章详情（管理端，不限制状态）

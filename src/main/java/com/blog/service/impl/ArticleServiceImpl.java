@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -117,8 +118,24 @@ public class ArticleServiceImpl implements ArticleService {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResult<ArticleListResponse> getArticleListForAdmin(Pageable pageable) {
-        Page<Article> page = articleRepository.findAll(pageable);
+    public PageResult<ArticleListResponse> getArticleListForAdmin(Pageable pageable, String keyword, Long categoryId, Integer status) {
+        Specification<Article> spec = Specification.where(null);
+
+        if (keyword != null && !keyword.isBlank()) {
+            String pattern = "%" + keyword + "%";
+            spec = spec.and((root, query, cb) -> cb.or(
+                cb.like(root.get("title"), pattern),
+                cb.like(root.get("summary"), pattern)
+            ));
+        }
+        if (categoryId != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("categoryId"), categoryId));
+        }
+        if (status != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), status));
+        }
+
+        Page<Article> page = articleRepository.findAll(spec, pageable);
         List<ArticleListResponse> content = convertToListResponses(page.getContent());
 
         return PageResult.of(content, page);

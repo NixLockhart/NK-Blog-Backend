@@ -29,15 +29,17 @@ public class AdminArticleController {
 
     private final ArticleService articleService;
 
-    @Operation(summary = "获取文章管理列表", description = "分页获取所有文章（包括草稿和已删除）")
+    @Operation(summary = "获取文章管理列表", description = "分页获取所有文章（包括草稿和已删除），支持搜索和筛选")
     @GetMapping
     public Result<PageResult<ArticleListResponse>> getArticleListForAdmin(
             @Parameter(description = "页码（从0开始）") @RequestParam(defaultValue = "0") int page,
-            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int size) {
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "搜索关键词（标题/摘要）") @RequestParam(required = false) String keyword,
+            @Parameter(description = "分类ID") @RequestParam(required = false) Long categoryId,
+            @Parameter(description = "状态（0=已删除, 1=已发布, 2=草稿）") @RequestParam(required = false) Integer status) {
 
-        size = Math.min(size, 100);
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        PageResult<ArticleListResponse> result = articleService.getArticleListForAdmin(pageable);
+        PageResult<ArticleListResponse> result = articleService.getArticleListForAdmin(pageable, keyword, categoryId, status);
         return Result.success(result);
     }
 

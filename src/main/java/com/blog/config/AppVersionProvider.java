@@ -1,6 +1,7 @@
 package com.blog.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.stereotype.Component;
 
 /**
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Component;
  * 工作流：git tag v2.0.5-alpha → mvn package → 版本号自动为 v2.0.5-alpha
  */
 @Component
+@PropertySource(value = "classpath:git.properties", ignoreResourceNotFound = true)
 public class AppVersionProvider {
 
     @Value("${git.closest.tag.name:unknown}")
