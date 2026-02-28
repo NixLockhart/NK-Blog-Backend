@@ -60,17 +60,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .allowCredentials(cors.getAllowCredentials())
                 .maxAge(cors.getMaxAge());
 
-        var dataMapping = registry.addMapping("/data/**");
-        if (isWildcard) {
-            dataMapping.allowedOriginPatterns("*");
-        } else {
-            dataMapping.allowedOrigins(allowedOrigins.split(","));
-        }
-        dataMapping.allowedMethods("GET", "HEAD", "OPTIONS")
-                .allowedHeaders(cors.getAllowedHeaders().split(","))
-                .allowCredentials(cors.getAllowCredentials())
-                .maxAge(cors.getMaxAge());
-
         log.info("CORS配置已启用: allowedOrigins={}, allowCredentials={}", allowedOrigins, cors.getAllowCredentials());
     }
 
@@ -116,7 +105,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", configuration);
         source.registerCorsConfiguration("/files/**", configuration);
-        source.registerCorsConfiguration("/data/**", configuration);
 
         log.info("CorsConfigurationSource已创建: allowedOrigins={}", allowedOrigins);
         return source;
@@ -145,14 +133,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
         log.info("配置静态资源处理器: {} -> {}", urlPattern, resourceLocation);
 
         registry.addResourceHandler(urlPattern)
-                .addResourceLocations(resourceLocation)
-                .setCachePeriod(staticFile.getCachePeriod());
-
-        // 添加 /data/** 映射，用于小工具等数据文件访问
-        String dataUrlPattern = "/data/**";
-        log.info("配置数据资源处理器: {} -> {}", dataUrlPattern, resourceLocation);
-
-        registry.addResourceHandler(dataUrlPattern)
                 .addResourceLocations(resourceLocation)
                 .setCachePeriod(staticFile.getCachePeriod());
     }

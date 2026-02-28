@@ -82,4 +82,20 @@ public class AdminArticleController {
         articleService.toggleTop(id);
         return Result.success(null);
     }
+
+    @Operation(summary = "恢复已删除文章", description = "将已删除的文章恢复为草稿状态")
+    @PutMapping("/{id}/restore")
+    public Result<Void> restoreArticle(
+            @Parameter(description = "文章ID") @PathVariable Long id) {
+        articleService.restoreArticle(id);
+        return Result.success(null);
+    }
+
+    @Operation(summary = "永久删除文章", description = "彻底删除文章及其关联数据（评论、访问日志、文件），此操作不可逆")
+    @DeleteMapping("/{id}/permanent")
+    public Result<Void> permanentlyDeleteArticle(
+            @Parameter(description = "文章ID") @PathVariable Long id) {
+        articleService.permanentlyDeleteArticle(id);
+        return Result.success(null);
+    }
 }

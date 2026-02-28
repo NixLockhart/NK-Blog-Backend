@@ -1,6 +1,7 @@
 package com.blog.service.impl;
 
 import com.blog.common.enums.ErrorCode;
+import com.blog.config.properties.BlogProperties;
 import com.blog.exception.BusinessException;
 import com.blog.model.dto.widget.WidgetCodeResponse;
 import com.blog.model.dto.widget.WidgetCreateRequest;
@@ -8,10 +9,10 @@ import com.blog.model.dto.widget.WidgetResponse;
 import com.blog.model.dto.widget.WidgetUpdateRequest;
 import com.blog.model.entity.Widget;
 import com.blog.repository.WidgetRepository;
+import com.blog.service.ImageUrlService;
 import com.blog.service.WidgetService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,12 +35,8 @@ import java.util.stream.Collectors;
 public class WidgetServiceImpl implements WidgetService {
 
     private final WidgetRepository widgetRepository;
-
-    @Value("${blog.data.path}")
-    private String dataPath;
-
-    @Value("${blog.base-url}")
-    private String baseUrl;
+    private final BlogProperties blogProperties;
+    private final ImageUrlService imageUrlService;
 
     // 小工具代码目录
     private static final String WIDGETS_DIR = "gadgets";
@@ -88,7 +85,7 @@ public class WidgetServiceImpl implements WidgetService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.WIDGET_NOT_FOUND));
 
         // 读取代码文件
-        Path codePath = Paths.get(dataPath, WIDGETS_DIR, widget.getCodePath());
+        Path codePath = Paths.get(blogProperties.getData().getPath(), WIDGETS_DIR, widget.getCodePath());
         String code;
         try {
             code = Files.readString(codePath);
@@ -113,7 +110,7 @@ public class WidgetServiceImpl implements WidgetService {
 
         // 生成唯一文件名
         String fileName = UUID.randomUUID().toString() + ".html";
-        Path codePath = Paths.get(dataPath, WIDGETS_DIR, fileName);
+        Path codePath = Paths.get(blogProperties.getData().getPath(), WIDGETS_DIR, fileName);
 
         // 保存代码文件
         try {
@@ -147,7 +144,7 @@ public class WidgetServiceImpl implements WidgetService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.WIDGET_NOT_FOUND));
 
         // 更新代码文件
-        Path codePath = Paths.get(dataPath, WIDGETS_DIR, widget.getCodePath());
+        Path codePath = Paths.get(blogProperties.getData().getPath(), WIDGETS_DIR, widget.getCodePath());
         try {
             Files.writeString(codePath, request.getCode(), StandardOpenOption.TRUNCATE_EXISTING);
         } catch (IOException e) {
@@ -159,7 +156,7 @@ public class WidgetServiceImpl implements WidgetService {
         if (request.getCoverImage() != null && !request.getCoverImage().isEmpty()) {
             // 删除旧封面（如果不是默认封面）
             if (widget.getCoverPath() != null && !widget.getCoverPath().equals(DEFAULT_COVER)) {
-                deleteFile(Paths.get(dataPath, WIDGETS_DIR, widget.getCoverPath()));
+                deleteFile(Paths.get(blogProperties.getData().getPath(), WIDGETS_DIR, widget.getCoverPath()));
             }
             String coverPath = saveCoverImage(request.getCoverImage());
             widget.setCoverPath(coverPath);
@@ -187,12 +184,12 @@ public class WidgetServiceImpl implements WidgetService {
         }
 
         // 删除代码文件
-        Path codePath = Paths.get(dataPath, WIDGETS_DIR, widget.getCodePath());
+        Path codePath = Paths.get(blogProperties.getData().getPath(), WIDGETS_DIR, widget.getCodePath());
         deleteFile(codePath);
 
         // 删除封面文件（如果不是默认封面）
         if (widget.getCoverPath() != null && !widget.getCoverPath().equals(DEFAULT_COVER)) {
-            Path coverPath = Paths.get(dataPath, WIDGETS_DIR, widget.getCoverPath());
+            Path coverPath = Paths.get(blogProperties.getData().getPath(), WIDGETS_DIR, widget.getCoverPath());
             deleteFile(coverPath);
         }
 
@@ -219,7 +216,7 @@ public class WidgetServiceImpl implements WidgetService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.WIDGET_NOT_FOUND));
 
         // 读取代码文件
-        Path codePath = Paths.get(dataPath, WIDGETS_DIR, widget.getCodePath());
+        Path codePath = Paths.get(blogProperties.getData().getPath(), WIDGETS_DIR, widget.getCodePath());
         try {
             return Files.readString(codePath);
         } catch (IOException e) {
@@ -252,11 +249,7 @@ public class WidgetServiceImpl implements WidgetService {
         if (coverPath == null || coverPath.isEmpty()) {
             coverPath = DEFAULT_COVER;
         }
-        // 系统自带的封面从静态资源获取
-        if (coverPath.startsWith("system/")) {
-            return "/assets/" + coverPath;
-        }
-        return "/data/gadgets/" + coverPath;
+        return imageUrlService.toUrl("gadgets/" + coverPath);
     }
 
     /**
@@ -285,7 +278,7 @@ public class WidgetServiceImpl implements WidgetService {
 
             // 生成唯一文件名
             String fileName = "covers/" + UUID.randomUUID().toString() + "." + extension;
-            Path imagePath = Paths.get(dataPath, WIDGETS_DIR, fileName);
+            Path imagePath = Paths.get(blogProperties.getData().getPath(), WIDGETS_DIR, fileName);
 
             Files.write(imagePath, imageBytes, StandardOpenOption.CREATE);
             return fileName;
@@ -300,12 +293,12 @@ public class WidgetServiceImpl implements WidgetService {
      */
     private void ensureDirectoriesExist() {
         try {
-            Path widgetsPath = Paths.get(dataPath, WIDGETS_DIR);
+            Path widgetsPath = Paths.get(blogProperties.getData().getPath(), WIDGETS_DIR);
             if (!Files.exists(widgetsPath)) {
                 Files.createDirectories(widgetsPath);
             }
 
-            Path coversPath = Paths.get(dataPath, COVERS_DIR);
+            Path coversPath = Paths.get(blogProperties.getData().getPath(), COVERS_DIR);
             if (!Files.exists(coversPath)) {
                 Files.createDirectories(coversPath);
             }

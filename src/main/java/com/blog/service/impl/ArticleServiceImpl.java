@@ -3,6 +3,7 @@ package com.blog.service.impl;
 import com.blog.common.enums.ArticleStatus;
 import com.blog.common.enums.ErrorCode;
 import com.blog.common.response.PageResult;
+import com.blog.config.properties.BlogProperties;
 import com.blog.exception.BusinessException;
 import com.blog.model.dto.article.ArticleDetailResponse;
 import com.blog.model.dto.article.ArticleListResponse;
@@ -11,8 +12,11 @@ import com.blog.model.entity.Article;
 import com.blog.model.entity.Category;
 import com.blog.repository.ArticleRepository;
 import com.blog.repository.CategoryRepository;
+import com.blog.repository.CommentRepository;
+import com.blog.repository.VisitLogRepository;
 import com.blog.service.ArticleService;
 import com.blog.service.FileService;
+import com.blog.service.ImageUrlService;
 import com.blog.service.MarkdownService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +27,9 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -40,8 +47,12 @@ public class ArticleServiceImpl implements ArticleService {
 
     private final ArticleRepository articleRepository;
     private final CategoryRepository categoryRepository;
+    private final CommentRepository commentRepository;
+    private final VisitLogRepository visitLogRepository;
     private final MarkdownService markdownService;
     private final FileService fileService;
+    private final ImageUrlService imageUrlService;
+    private final BlogProperties blogProperties;
 
     private static final Integer STATUS_PUBLISHED = ArticleStatus.PUBLISHED.getValue();
     private static final Integer STATUS_DRAFT = ArticleStatus.DRAFT.getValue();
@@ -167,7 +178,7 @@ public class ArticleServiceImpl implements ArticleService {
         article.setContentPath(""); // 临时空路径
         article.setCategoryId(request.getCategoryId());
         article.setSummary(request.getSummary());
-        article.setCoverImage(request.getCoverImage());
+        article.setCoverImage(imageUrlService.toRelativePath(request.getCoverImage()));
         article.setStatus(request.getStatus());
         article.setIsTop(0);
         article.setViews(0L);
@@ -214,21 +225,18 @@ public class ArticleServiceImpl implements ArticleService {
         // 更新Markdown文件，使用文章ID作为文件名
         String contentPath = markdownService.saveMarkdownFile(request.getContent(), id + ".md");
 
-        // 处理封面图片更新
-        String oldCoverImage = article.getCoverImage();
+        // 处理封面图片 - 统一转换为相对路径存储
         String newCoverImage = request.getCoverImage();
+        String newRelative = imageUrlService.toRelativePath(newCoverImage);
 
-        // 如果封面图片发生变化，删除旧封面
-        if (oldCoverImage != null && !oldCoverImage.isEmpty()
-            && newCoverImage != null && !newCoverImage.isEmpty()
-            && !oldCoverImage.equals(newCoverImage)) {
-            try {
-                fileService.deleteFile(oldCoverImage);
-                log.info("删除旧封面成功: {}", oldCoverImage);
-            } catch (Exception e) {
-                log.warn("删除旧封面失败: {}", oldCoverImage, e);
-            }
+        // 如果请求未携带封面（null/空），保留现有封面（防止竞态条件清空封面）
+        if (newRelative == null || newRelative.isEmpty()) {
+            newRelative = imageUrlService.toRelativePath(article.getCoverImage());
         }
+
+        // 注意：不再在 updateArticle 中删除旧封面文件。
+        // 上传封面接口已使用 REPLACE_EXISTING 覆盖同名文件，
+        // permanentlyDeleteArticle 负责最终清理。避免在此处误删新上传的封面。
 
         // 更新文章信息
         article.setTitle(request.getTitle() == null || request.getTitle().trim().isEmpty()
@@ -236,8 +244,11 @@ public class ArticleServiceImpl implements ArticleService {
         article.setContentPath(contentPath);
         article.setCategoryId(request.getCategoryId());
         article.setSummary(request.getSummary());
-        article.setCoverImage(request.getCoverImage());
+        article.setCoverImage(newRelative);
         article.setStatus(request.getStatus());
+
+        // 手动设置更新时间
+        article.setUpdatedAt(LocalDateTime.now());
 
         // 如果从草稿变为发布，设置发布时间
         if (!oldStatus.equals(STATUS_PUBLISHED) && request.getStatus().equals(STATUS_PUBLISHED)) {
@@ -261,6 +272,7 @@ public class ArticleServiceImpl implements ArticleService {
 
         // 软删除
         article.setStatus(STATUS_DELETED);
+        article.setDeletedAt(LocalDateTime.now());
         articleRepository.save(article);
 
         // 更新分类文章数
@@ -269,6 +281,79 @@ public class ArticleServiceImpl implements ArticleService {
         }
 
         log.info("删除文章成功: id={}, title={}", article.getId(), article.getTitle());
+    }
+
+    @Override
+    @Transactional
+    public void restoreArticle(Long id) {
+        Article article = articleRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ARTICLE_NOT_FOUND));
+
+        if (!STATUS_DELETED.equals(article.getStatus())) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "文章未处于已删除状态");
+        }
+
+        // 恢复为草稿状态
+        article.setStatus(STATUS_DRAFT);
+        article.setDeletedAt(null);
+        articleRepository.save(article);
+
+        log.info("恢复文章成功: id={}, title={}", article.getId(), article.getTitle());
+    }
+
+    @Override
+    @Transactional
+    public void permanentlyDeleteArticle(Long id) {
+        Article article = articleRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ARTICLE_NOT_FOUND));
+
+        // 1. 删除关联评论
+        commentRepository.deleteByArticleId(id);
+
+        // 2. 删除关联访问日志
+        visitLogRepository.deleteByArticleId(id);
+
+        // 3. 删除 Markdown 文件
+        try {
+            markdownService.deleteMarkdownFile(article.getContentPath());
+        } catch (Exception e) {
+            log.warn("删除文章Markdown文件失败: {}", article.getContentPath(), e);
+        }
+
+        // 4. 删除封面图片
+        if (article.getCoverImage() != null && !article.getCoverImage().isEmpty()) {
+            try {
+                fileService.deleteFile(imageUrlService.toRelativePath(article.getCoverImage()));
+            } catch (Exception e) {
+                log.warn("删除文章封面失败: {}", article.getCoverImage(), e);
+            }
+        }
+
+        // 5. 删除文章图片目录
+        try {
+            Path imagesDir = Paths.get(blogProperties.getData().getPath(), "images", String.valueOf(id));
+            if (Files.exists(imagesDir)) {
+                Files.walkFileTree(imagesDir, new SimpleFileVisitor<>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        Files.delete(file);
+                        return FileVisitResult.CONTINUE;
+                    }
+                    @Override
+                    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                        Files.delete(dir);
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+            }
+        } catch (IOException e) {
+            log.warn("删除文章图片目录失败: articleId={}", id, e);
+        }
+
+        // 6. 删除数据库条目
+        articleRepository.delete(article);
+
+        log.info("永久删除文章成功: id={}, title={}", article.getId(), article.getTitle());
     }
 
     @Override
@@ -317,7 +402,7 @@ public class ArticleServiceImpl implements ArticleService {
         response.setId(article.getId());
         response.setTitle(article.getTitle());
         response.setSummary(article.getSummary());
-        response.setCoverImage(article.getCoverImage());
+        response.setCoverImage(imageUrlService.toUrl(article.getCoverImage()));
         response.setCategoryId(article.getCategoryId());
 
         if (article.getCategoryId() != null) {
@@ -350,7 +435,7 @@ public class ArticleServiceImpl implements ArticleService {
         response.setToc(markdownService.generateToc(markdownContent));
 
         response.setSummary(article.getSummary());
-        response.setCoverImage(article.getCoverImage());
+        response.setCoverImage(imageUrlService.toUrl(article.getCoverImage()));
         response.setCategoryId(article.getCategoryId());
 
         // 获取分类名称（避免懒加载异常，直接通过categoryId查询）

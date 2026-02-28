@@ -2,6 +2,7 @@ package com.blog.controller.admin;
 
 import com.blog.common.enums.ErrorCode;
 import com.blog.common.response.Result;
+import com.blog.config.properties.BlogProperties;
 import com.blog.exception.BusinessException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -9,7 +10,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -33,8 +33,7 @@ import java.util.UUID;
 @SecurityRequirement(name = "Bearer Authentication")
 public class AdminFileController {
 
-    @Value("${blog.data.path:}")
-    private String blogDataPath;
+    private final BlogProperties blogProperties;
 
     private static final List<String> ALLOWED_IMAGE_TYPES = Arrays.asList("image/jpeg", "image/jpg", "image/png");
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -69,9 +68,8 @@ public class AdminFileController {
             Path filePath = coversDir.resolve(fileName);
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-            // 返回相对路径，添加时间戳作为版本号以破坏缓存
-            long timestamp = Files.getLastModifiedTime(filePath).toMillis();
-            String relativePath = "/files/images/covers/" + fileName + "?v=" + timestamp;
+            // 返回相对路径（相对于 blog.data.path）
+            String relativePath = "images/covers/" + fileName;
             log.info("上传封面成功: articleId={}, path={}", articleId, relativePath);
 
             return Result.success(relativePath);
@@ -114,12 +112,11 @@ public class AdminFileController {
             Path filePath = coversDir.resolve(fileName);
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-            // 返回访问URL，添加时间戳作为版本号以破坏缓存
-            long timestamp = Files.getLastModifiedTime(filePath).toMillis();
-            String url = "/files/images/covers/" + fileName + "?v=" + timestamp;
-            log.info("上传临时封面成功: {}", url);
+            // 返回相对路径（相对于 blog.data.path）
+            String relativePath = "images/covers/" + fileName;
+            log.info("上传临时封面成功: {}", relativePath);
 
-            return Result.success(url);
+            return Result.success(relativePath);
 
         } catch (BusinessException e) {
             throw e;
@@ -162,9 +159,8 @@ public class AdminFileController {
             Path filePath = imagesDir.resolve(fileName);
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-            // 返回相对路径，添加时间戳作为版本号以破坏缓存
-            long timestamp = Files.getLastModifiedTime(filePath).toMillis();
-            String relativePath = "/files/images/" + articleId + "/" + fileName + "?v=" + timestamp;
+            // 返回相对路径（相对于 blog.data.path）
+            String relativePath = "images/" + articleId + "/" + fileName;
             log.info("上传文章图片成功: {}", relativePath);
 
             return Result.success(relativePath);
@@ -213,34 +209,14 @@ public class AdminFileController {
      * 获取封面图片目录路径
      */
     private String getCoversPath() {
-        // 优先使用配置文件中的路径
-        if (blogDataPath != null && !blogDataPath.isEmpty()) {
-            return blogDataPath + "/images/covers";
-        }
-
-        // 降级到user.home路径（开发环境）
-        String basePath = System.getProperty("user.home").replace("\\", "/")
-                + "/Desktop/NixStudio/blog-data/images/covers";
-
-        log.warn("未配置blog.data.path，使用默认路径: {}", basePath);
-        return basePath;
+        return blogProperties.getData().getPath() + "/images/covers";
     }
 
     /**
      * 获取文章图片目录路径
      */
     private String getArticleImagesPath(Long articleId) {
-        // 优先使用配置文件中的路径
-        if (blogDataPath != null && !blogDataPath.isEmpty()) {
-            return blogDataPath + "/images/" + articleId;
-        }
-
-        // 降级到user.home路径（开发环境）
-        String basePath = System.getProperty("user.home").replace("\\", "/")
-                + "/Desktop/NixStudio/blog-data/images/" + articleId;
-
-        log.warn("未配置blog.data.path，使用默认路径: {}", basePath);
-        return basePath;
+        return blogProperties.getData().getPath() + "/images/" + articleId;
     }
 
     /**

@@ -87,4 +87,9 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
      */
     @Query("SELECT c.id FROM Comment c WHERE c.parentId = :parentId")
     List<Long> findIdsByParentId(@Param("parentId") Long parentId);
+
+    /**
+     * 删除指定文章的所有评论（用于文章永久删除时级联清理）
+     */
+    void deleteByArticleId(Long articleId);
 }

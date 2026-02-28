@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -99,4 +100,9 @@ public interface ArticleRepository extends JpaRepository<Article, Long>, JpaSpec
      */
     @Query("SELECT a.title, a.views FROM Article a WHERE a.status = 1 ORDER BY a.views DESC")
     List<Object[]> findTopArticlesByViews(int limit);
+
+    /**
+     * 查找已删除且超过指定时间的文章（用于定时清理）
+     */
+    List<Article> findByStatusAndDeletedAtBefore(Integer status, LocalDateTime before);
 }

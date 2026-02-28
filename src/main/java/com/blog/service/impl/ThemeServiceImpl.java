@@ -1,16 +1,17 @@
 package com.blog.service.impl;
 
 import com.blog.common.enums.ErrorCode;
+import com.blog.config.properties.BlogProperties;
 import com.blog.exception.BusinessException;
 import com.blog.model.dto.theme.ThemeCreateRequest;
 import com.blog.model.dto.theme.ThemeResponse;
 import com.blog.model.dto.theme.ThemeUpdateRequest;
 import com.blog.model.entity.Theme;
 import com.blog.repository.ThemeRepository;
+import com.blog.service.ImageUrlService;
 import com.blog.service.ThemeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -37,12 +38,8 @@ import java.io.ByteArrayOutputStream;
 public class ThemeServiceImpl implements ThemeService {
 
     private final ThemeRepository themeRepository;
-
-    @Value("${blog.data.path}")
-    private String dataPath;
-
-    @Value("${blog.base-url}")
-    private String baseUrl;
+    private final BlogProperties blogProperties;
+    private final ImageUrlService imageUrlService;
 
     // 主题文件目录
     private static final String THEMES_DIR = "themes";
@@ -223,7 +220,7 @@ public class ThemeServiceImpl implements ThemeService {
 
             // 保存封面
             String fileName = theme.getSlug() + getFileExtension(file.getOriginalFilename());
-            Path coversPath = Paths.get(dataPath, COVERS_DIR);
+            Path coversPath = Paths.get(blogProperties.getData().getPath(), COVERS_DIR);
             Files.createDirectories(coversPath);
 
             Path filePath = coversPath.resolve(fileName);
@@ -244,7 +241,7 @@ public class ThemeServiceImpl implements ThemeService {
      * 保存主题CSS文件
      */
     private void saveThemeFiles(String slug, MultipartFile lightCss, MultipartFile darkCss) throws IOException {
-        Path themePath = Paths.get(dataPath, THEMES_DIR, slug);
+        Path themePath = Paths.get(blogProperties.getData().getPath(), THEMES_DIR, slug);
         Files.createDirectories(themePath);
 
         if (lightCss != null && !lightCss.isEmpty()) {
@@ -262,7 +259,7 @@ public class ThemeServiceImpl implements ThemeService {
      * 删除主题文件
      */
     private void deleteThemeFiles(String slug) throws IOException {
-        Path themePath = Paths.get(dataPath, THEMES_DIR, slug);
+        Path themePath = Paths.get(blogProperties.getData().getPath(), THEMES_DIR, slug);
         if (Files.exists(themePath)) {
             Files.walk(themePath)
                     .sorted((a, b) -> b.compareTo(a))
@@ -294,7 +291,7 @@ public class ThemeServiceImpl implements ThemeService {
 
             // 保存文件
             String fileName = slug + extension;
-            Path coversPath = Paths.get(dataPath, COVERS_DIR);
+            Path coversPath = Paths.get(blogProperties.getData().getPath(), COVERS_DIR);
             Files.createDirectories(coversPath);
 
             Path filePath = coversPath.resolve(fileName);
@@ -350,9 +347,9 @@ public class ThemeServiceImpl implements ThemeService {
      */
     private String getCoverUrl(String coverPath) {
         if (coverPath == null || coverPath.isEmpty()) {
-            return "/files/themes/covers/" + DEFAULT_COVER;
+            return imageUrlService.toUrl("themes/covers/" + DEFAULT_COVER);
         }
-        return "/files/themes/covers/" + coverPath;
+        return imageUrlService.toUrl("themes/covers/" + coverPath);
     }
 
     /**
@@ -388,7 +385,7 @@ public class ThemeServiceImpl implements ThemeService {
             ZipOutputStream zos = new ZipOutputStream(baos);
 
             // 添加light.css
-            Path lightCssPath = Paths.get(dataPath, THEMES_DIR, theme.getSlug(), "light.css");
+            Path lightCssPath = Paths.get(blogProperties.getData().getPath(), THEMES_DIR, theme.getSlug(), "light.css");
             if (Files.exists(lightCssPath)) {
                 ZipEntry lightEntry = new ZipEntry("light.css");
                 zos.putNextEntry(lightEntry);
@@ -397,7 +394,7 @@ public class ThemeServiceImpl implements ThemeService {
             }
 
             // 添加dark.css
-            Path darkCssPath = Paths.get(dataPath, THEMES_DIR, theme.getSlug(), "dark.css");
+            Path darkCssPath = Paths.get(blogProperties.getData().getPath(), THEMES_DIR, theme.getSlug(), "dark.css");
             if (Files.exists(darkCssPath)) {
                 ZipEntry darkEntry = new ZipEntry("dark.css");
                 zos.putNextEntry(darkEntry);
@@ -407,7 +404,7 @@ public class ThemeServiceImpl implements ThemeService {
 
             // 添加封面图片（如果不是默认封面）
             if (theme.getCoverPath() != null && !theme.getCoverPath().equals(DEFAULT_COVER)) {
-                Path coverPath = Paths.get(dataPath, COVERS_DIR, theme.getCoverPath());
+                Path coverPath = Paths.get(blogProperties.getData().getPath(), COVERS_DIR, theme.getCoverPath());
                 if (Files.exists(coverPath)) {
                     String extension = getFileExtension(theme.getCoverPath());
                     ZipEntry coverEntry = new ZipEntry("cover" + extension);

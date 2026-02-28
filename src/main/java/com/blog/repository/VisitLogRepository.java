@@ -70,4 +70,9 @@ public interface VisitLogRepository extends JpaRepository<VisitLog, Long> {
      */
     @Query("SELECT COUNT(DISTINCT v.visitorId) FROM VisitLog v")
     long countTotalUniqueVisitors();
+
+    /**
+     * 删除指定文章的所有访问记录（用于文章永久删除时级联清理）
+     */
+    void deleteByArticleId(Long articleId);
 }

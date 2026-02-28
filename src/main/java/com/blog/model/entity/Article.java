@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
+
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
@@ -108,14 +108,18 @@ public class Article {
     private LocalDateTime createdAt;
 
     /**
-     * 更新时间
+     * 更新时间（手动控制：创建时为null，更新时填充）
      */
-    @LastModifiedDate
-    @Column(nullable = false)
+    @Column
     private LocalDateTime updatedAt;
 
     /**
      * 发布时间
      */
     private LocalDateTime publishedAt;
+
+    /**
+     * 删除时间（软删除时记录，用于30天后自动永久删除）
+     */
+    private LocalDateTime deletedAt;
 }

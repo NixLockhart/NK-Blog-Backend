@@ -74,6 +74,16 @@ public interface ArticleService {
     void deleteArticle(Long id);
 
     /**
+     * 恢复已删除的文章（变为草稿）
+     */
+    void restoreArticle(Long id);
+
+    /**
+     * 永久删除文章（级联删除评论、访问日志、文件）
+     */
+    void permanentlyDeleteArticle(Long id);
+
+    /**
      * 置顶/取消置顶文章
      */
     void toggleTop(Long id);
