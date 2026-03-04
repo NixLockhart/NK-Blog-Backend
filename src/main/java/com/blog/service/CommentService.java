@@ -34,6 +34,16 @@ public interface CommentService {
     void deleteComment(Long id);
 
     /**
+     * 永久删除评论（物理删除，级联删除子评论）
+     */
+    void permanentlyDeleteComment(Long id);
+
+    /**
+     * 恢复已删除的评论
+     */
+    void restoreComment(Long id);
+
+    /**
      * 审核评论
      */
     void approveComment(Long id, Integer status);

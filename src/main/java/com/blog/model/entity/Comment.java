@@ -97,4 +97,10 @@ public class Comment {
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    /**
+     * 删除时间（软删除时记录，用于30天后自动永久删除）
+     */
+    @Column
+    private LocalDateTime deletedAt;
 }

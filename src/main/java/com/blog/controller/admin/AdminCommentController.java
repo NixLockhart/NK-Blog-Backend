@@ -52,6 +52,22 @@ public class AdminCommentController {
         return Result.success(null);
     }
 
+    @Operation(summary = "永久删除评论", description = "彻底删除评论及其所有子评论，此操作不可逆")
+    @DeleteMapping("/{id}/permanent")
+    public Result<Void> permanentlyDeleteComment(
+            @Parameter(description = "评论ID") @PathVariable Long id) {
+        commentService.permanentlyDeleteComment(id);
+        return Result.success(null);
+    }
+
+    @Operation(summary = "恢复已删除评论", description = "将已删除的评论恢复为已审核状态")
+    @PutMapping("/{id}/restore")
+    public Result<Void> restoreComment(
+            @Parameter(description = "评论ID") @PathVariable Long id) {
+        commentService.restoreComment(id);
+        return Result.success(null);
+    }
+
     @Operation(summary = "审核评论", description = "审核评论（1=通过, 2=待审核）")
     @PutMapping("/{id}/status")
     public Result<Void> approveComment(

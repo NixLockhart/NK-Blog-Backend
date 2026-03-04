@@ -92,4 +92,9 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
      * 删除指定文章的所有评论（用于文章永久删除时级联清理）
      */
     void deleteByArticleId(Long articleId);
+
+    /**
+     * 查询指定状态且删除时间早于指定时间的评论（用于定时清理）
+     */
+    List<Comment> findByStatusAndDeletedAtBefore(Integer status, LocalDateTime before);
 }

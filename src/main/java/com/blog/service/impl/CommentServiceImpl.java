@@ -20,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -143,6 +144,7 @@ public class CommentServiceImpl implements CommentService {
 
         // 软删除当前评论
         comment.setStatus(STATUS_DELETED);
+        comment.setDeletedAt(LocalDateTime.now());
         commentRepository.save(comment);
 
         // 更新文章评论数
@@ -150,6 +152,37 @@ public class CommentServiceImpl implements CommentService {
         articleRepository.updateCommentCount(comment.getArticleId(), (int) commentCount);
 
         log.info("删除评论成功: id={}", id);
+    }
+
+    @Override
+    @Transactional
+    public void permanentlyDeleteComment(Long id) {
+        Comment comment = commentRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+
+        // 收集当前评论及所有后代评论的ID
+        List<Long> allIds = new ArrayList<>();
+        collectDescendantIds(id, allIds);
+        allIds.add(id);
+
+        Long articleId = comment.getArticleId();
+
+        // 物理删除
+        commentRepository.deleteAllById(allIds);
+
+        // 更新文章评论数
+        long commentCount = commentRepository.countByArticleIdAndStatusNot(articleId, STATUS_DELETED);
+        articleRepository.updateCommentCount(articleId, (int) commentCount);
+
+        log.info("永久删除评论成功: id={}, 共删除{}条", id, allIds.size());
+    }
+
+    private void collectDescendantIds(Long parentId, List<Long> ids) {
+        List<Long> childIds = commentRepository.findIdsByParentId(parentId);
+        for (Long childId : childIds) {
+            ids.add(childId);
+            collectDescendantIds(childId, ids);
+        }
     }
 
     @Override
@@ -166,6 +199,28 @@ public class CommentServiceImpl implements CommentService {
         articleRepository.updateCommentCount(comment.getArticleId(), (int) commentCount);
 
         log.info("审核评论成功: id={}, status={}", id, status);
+    }
+
+    @Override
+    @Transactional
+    public void restoreComment(Long id) {
+        Comment comment = commentRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+
+        if (!STATUS_DELETED.equals(comment.getStatus())) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "评论未处于已删除状态");
+        }
+
+        // 恢复为已审核状态
+        comment.setStatus(STATUS_APPROVED);
+        comment.setDeletedAt(null);
+        commentRepository.save(comment);
+
+        // 更新文章评论数
+        long commentCount = commentRepository.countByArticleIdAndStatusNot(comment.getArticleId(), STATUS_DELETED);
+        articleRepository.updateCommentCount(comment.getArticleId(), (int) commentCount);
+
+        log.info("恢复评论成功: id={}", id);
     }
 
     /**
@@ -219,6 +274,7 @@ public class CommentServiceImpl implements CommentService {
         response.setUserAgent(comment.getUserAgent());
         response.setStatus(comment.getStatus());
         response.setCreatedAt(comment.getCreatedAt());
+        response.setDeletedAt(comment.getDeletedAt());
         return response;
     }
 }

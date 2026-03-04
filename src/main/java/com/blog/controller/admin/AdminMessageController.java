@@ -46,6 +46,22 @@ public class AdminMessageController {
         return Result.success(null);
     }
 
+    @Operation(summary = "永久删除留言", description = "彻底删除留言，此操作不可逆")
+    @DeleteMapping("/{id}/permanent")
+    public Result<Void> permanentlyDeleteMessage(
+            @Parameter(description = "留言ID") @PathVariable Long id) {
+        messageService.permanentlyDeleteMessage(id);
+        return Result.success(null);
+    }
+
+    @Operation(summary = "恢复已删除留言", description = "将已删除的留言恢复为可见状态")
+    @PutMapping("/{id}/restore")
+    public Result<Void> restoreMessage(
+            @Parameter(description = "留言ID") @PathVariable Long id) {
+        messageService.restoreMessage(id);
+        return Result.success(null);
+    }
+
     @Operation(summary = "设置/取消友链标记", description = "切换留言的友情链接标记")
     @PutMapping("/{id}/friend")
     public Result<Void> toggleFriendLink(

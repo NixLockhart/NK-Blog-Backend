@@ -45,4 +45,7 @@ public class MessageResponse {
 
     @Schema(description = "创建时间")
     private LocalDateTime createdAt;
+
+    @Schema(description = "删除时间")
+    private LocalDateTime deletedAt;
 }

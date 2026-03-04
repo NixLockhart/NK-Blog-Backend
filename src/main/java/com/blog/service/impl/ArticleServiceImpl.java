@@ -416,6 +416,7 @@ public class ArticleServiceImpl implements ArticleService {
         response.setStatus(article.getStatus());
         response.setPublishedAt(article.getPublishedAt());
         response.setCreatedAt(article.getCreatedAt());
+        response.setDeletedAt(article.getDeletedAt());
 
         return response;
     }

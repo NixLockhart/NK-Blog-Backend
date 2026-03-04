@@ -17,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -95,9 +96,38 @@ public class MessageServiceImpl implements MessageService {
         message.setStatus(STATUS_DELETED);
         // 删除时自动取消友链
         message.setIsFriendLink(0);
+        message.setDeletedAt(LocalDateTime.now());
         messageRepository.save(message);
 
         log.info("删除留言成功: id={}", id);
+    }
+
+    @Override
+    @Transactional
+    public void permanentlyDeleteMessage(Long id) {
+        if (!messageRepository.existsById(id)) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+        messageRepository.deleteById(id);
+        log.info("永久删除留言成功: id={}", id);
+    }
+
+    @Override
+    @Transactional
+    public void restoreMessage(Long id) {
+        Message message = messageRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        if (!STATUS_DELETED.equals(message.getStatus())) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "留言未处于已删除状态");
+        }
+
+        // 恢复为可见状态（不恢复友链标记，删除时已取消）
+        message.setStatus(STATUS_VISIBLE);
+        message.setDeletedAt(null);
+        messageRepository.save(message);
+
+        log.info("恢复留言成功: id={}", id);
     }
 
     @Override
@@ -127,6 +157,7 @@ public class MessageServiceImpl implements MessageService {
         response.setStatus(message.getStatus());
         response.setIpAddress(message.getIpAddress());
         response.setCreatedAt(message.getCreatedAt());
+        response.setDeletedAt(message.getDeletedAt());
         return response;
     }
 }

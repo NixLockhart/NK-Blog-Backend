@@ -44,4 +44,9 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
      * 统计指定时间段的留言数
      */
     long countByCreatedAtBetween(LocalDateTime startDate, LocalDateTime endDate);
+
+    /**
+     * 查询指定状态且删除时间早于指定时间的留言（用于定时清理）
+     */
+    List<Message> findByStatusAndDeletedAtBefore(Integer status, LocalDateTime before);
 }

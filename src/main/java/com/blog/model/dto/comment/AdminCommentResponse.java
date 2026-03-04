@@ -60,6 +60,9 @@ public class AdminCommentResponse {
     @Schema(description = "创建时间")
     private LocalDateTime createdAt;
 
+    @Schema(description = "删除时间")
+    private LocalDateTime deletedAt;
+
     @Schema(description = "子评论列表")
     private List<AdminCommentResponse> children = new ArrayList<>();
 }

@@ -38,6 +38,16 @@ public interface MessageService {
     void deleteMessage(Long id);
 
     /**
+     * 永久删除留言（物理删除）
+     */
+    void permanentlyDeleteMessage(Long id);
+
+    /**
+     * 恢复已删除的留言
+     */
+    void restoreMessage(Long id);
+
+    /**
      * 设置/取消友链标记
      */
     void toggleFriendLink(Long id);
