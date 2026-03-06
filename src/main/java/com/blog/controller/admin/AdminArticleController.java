@@ -98,4 +98,12 @@ public class AdminArticleController {
         articleService.permanentlyDeleteArticle(id);
         return Result.success(null);
     }
+
+    @Operation(summary = "放弃草稿", description = "删除文章的草稿文件，保留已发布内容不变")
+    @DeleteMapping("/{id}/draft")
+    public Result<Void> discardDraft(
+            @Parameter(description = "文章ID") @PathVariable Long id) {
+        articleService.discardDraft(id);
+        return Result.success(null);
+    }
 }

@@ -34,4 +34,7 @@ public class ArticleSaveRequest {
     @NotNull(message = "状态不能为空")
     @Schema(description = "状态: 1=发布, 2=草稿", example = "1")
     private Integer status;
+
+    @Schema(description = "是否为自动保存（自动保存已发布文章时仅写入草稿文件，不影响已发布内容）")
+    private Boolean autoSave;
 }

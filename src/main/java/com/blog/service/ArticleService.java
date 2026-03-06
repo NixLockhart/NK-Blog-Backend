@@ -87,4 +87,9 @@ public interface ArticleService {
      * 置顶/取消置顶文章
      */
     void toggleTop(Long id);
+
+    /**
+     * 放弃草稿（删除草稿文件，保留已发布内容不变）
+     */
+    void discardDraft(Long id);
 }

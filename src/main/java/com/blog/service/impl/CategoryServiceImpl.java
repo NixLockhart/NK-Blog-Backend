@@ -108,7 +108,7 @@ public class CategoryServiceImpl implements CategoryService {
 
         if (deleteArticles && articleCount > 0) {
             // 删除分类下的所有文章（软删除）
-            articleRepository.findByCategoryIdAndStatusOrderByCreatedAtDesc(id, STATUS_PUBLISHED,
+            articleRepository.findByCategoryIdAndStatusOrderByIsTopDescCreatedAtDesc(id, STATUS_PUBLISHED,
                     org.springframework.data.domain.Pageable.unpaged())
                     .forEach(article -> {
                         article.setStatus(0); // 软删除

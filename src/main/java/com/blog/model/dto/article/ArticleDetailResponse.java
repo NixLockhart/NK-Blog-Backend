@@ -66,4 +66,7 @@ public class ArticleDetailResponse {
 
     @Schema(description = "更新时间")
     private LocalDateTime updatedAt;
+
+    @Schema(description = "是否存在未保存的草稿修改")
+    private Boolean hasDraft;
 }

@@ -21,14 +21,14 @@ import java.util.Optional;
 public interface ArticleRepository extends JpaRepository<Article, Long>, JpaSpecificationExecutor<Article> {
 
     /**
-     * 根据状态查询文章（分页）
+     * 根据状态查询文章（分页，置顶优先）
      */
-    Page<Article> findByStatusOrderByCreatedAtDesc(Integer status, Pageable pageable);
+    Page<Article> findByStatusOrderByIsTopDescCreatedAtDesc(Integer status, Pageable pageable);
 
     /**
-     * 根据分类ID和状态查询文章（分页）
+     * 根据分类ID和状态查询文章（分页，置顶优先）
      */
-    Page<Article> findByCategoryIdAndStatusOrderByCreatedAtDesc(Long categoryId, Integer status, Pageable pageable);
+    Page<Article> findByCategoryIdAndStatusOrderByIsTopDescCreatedAtDesc(Long categoryId, Integer status, Pageable pageable);
 
     /**
      * 根据状态查询置顶文章

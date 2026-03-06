@@ -68,10 +68,10 @@ public class ArticleServiceImpl implements ArticleService {
             page = articleRepository.searchArticles(keyword, STATUS_PUBLISHED, pageable);
         } else if (categoryId != null) {
             // 按分类查询
-            page = articleRepository.findByCategoryIdAndStatusOrderByCreatedAtDesc(categoryId, STATUS_PUBLISHED, pageable);
+            page = articleRepository.findByCategoryIdAndStatusOrderByIsTopDescCreatedAtDesc(categoryId, STATUS_PUBLISHED, pageable);
         } else {
             // 查询所有已发布文章
-            page = articleRepository.findByStatusOrderByCreatedAtDesc(STATUS_PUBLISHED, pageable);
+            page = articleRepository.findByStatusOrderByIsTopDescCreatedAtDesc(STATUS_PUBLISHED, pageable);
         }
 
         List<ArticleListResponse> content = convertToListResponses(page.getContent());
@@ -149,6 +149,13 @@ public class ArticleServiceImpl implements ArticleService {
         Page<Article> page = articleRepository.findAll(spec, pageable);
         List<ArticleListResponse> content = convertToListResponses(page.getContent());
 
+        // 管理端列表：标记存在草稿文件的文章
+        for (ArticleListResponse item : content) {
+            if (markdownService.draftExists(item.getId())) {
+                item.setHasDraft(true);
+            }
+        }
+
         return PageResult.of(content, page);
     }
 
@@ -159,7 +166,18 @@ public class ArticleServiceImpl implements ArticleService {
         Article article = articleRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ARTICLE_NOT_FOUND));
 
-        return convertToDetailResponse(article);
+        ArticleDetailResponse response = convertToDetailResponse(article);
+
+        // 如果存在草稿文件，用草稿内容覆盖（编辑中的未发布修改）
+        String draftContent = markdownService.readDraftFile(id);
+        if (draftContent != null) {
+            response.setHasDraft(true);
+            response.setMarkdownContent(draftContent);
+            response.setContent(markdownService.markdownToHtml(draftContent));
+            response.setToc(markdownService.generateToc(draftContent));
+        }
+
+        return response;
     }
 
     @Override
@@ -212,6 +230,15 @@ public class ArticleServiceImpl implements ArticleService {
         Article article = articleRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ARTICLE_NOT_FOUND));
 
+        // 自动保存已发布文章：仅写入草稿文件，不修改已发布内容和文章实体
+        boolean isAutoSavePublished = Boolean.TRUE.equals(request.getAutoSave())
+                && STATUS_PUBLISHED.equals(article.getStatus());
+        if (isAutoSavePublished) {
+            markdownService.saveDraftFile(id, request.getContent());
+            log.debug("自动保存已发布文章草稿: id={}", id);
+            return convertToDetailResponse(article);
+        }
+
         // 检查分类是否存在（如果提供了分类ID）
         if (request.getCategoryId() != null && !request.getCategoryId().equals(article.getCategoryId())) {
             categoryRepository.findById(request.getCategoryId())
@@ -224,6 +251,9 @@ public class ArticleServiceImpl implements ArticleService {
 
         // 更新Markdown文件，使用文章ID作为文件名
         String contentPath = markdownService.saveMarkdownFile(request.getContent(), id + ".md");
+
+        // 明确保存/发布时清理草稿文件
+        markdownService.deleteDraftFile(id);
 
         // 处理封面图片 - 统一转换为相对路径存储
         String newCoverImage = request.getCoverImage();
@@ -250,8 +280,8 @@ public class ArticleServiceImpl implements ArticleService {
         // 手动设置更新时间
         article.setUpdatedAt(LocalDateTime.now());
 
-        // 如果从草稿变为发布，设置发布时间
-        if (!oldStatus.equals(STATUS_PUBLISHED) && request.getStatus().equals(STATUS_PUBLISHED)) {
+        // 首次发布时设置发布时间（之后无论状态如何变化都保留原始发布时间）
+        if (article.getPublishedAt() == null && request.getStatus().equals(STATUS_PUBLISHED)) {
             article.setPublishedAt(LocalDateTime.now());
         }
 
@@ -320,6 +350,9 @@ public class ArticleServiceImpl implements ArticleService {
             log.warn("删除文章Markdown文件失败: {}", article.getContentPath(), e);
         }
 
+        // 3.1 删除草稿文件（如有）
+        markdownService.deleteDraftFile(id);
+
         // 4. 删除封面图片
         if (article.getCoverImage() != null && !article.getCoverImage().isEmpty()) {
             try {
@@ -367,6 +400,16 @@ public class ArticleServiceImpl implements ArticleService {
         articleRepository.save(article);
 
         log.info("切换文章置顶状态: id={}, isTop={}", article.getId(), article.getIsTop());
+    }
+
+    @Override
+    @Transactional
+    public void discardDraft(Long id) {
+        if (!articleRepository.existsById(id)) {
+            throw new BusinessException(ErrorCode.ARTICLE_NOT_FOUND);
+        }
+        markdownService.deleteDraftFile(id);
+        log.info("放弃文章草稿: id={}", id);
     }
 
     /**

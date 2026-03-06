@@ -127,6 +127,58 @@ public class MarkdownServiceImpl implements MarkdownService {
         }
     }
 
+    @Override
+    public boolean draftExists(Long articleId) {
+        Path draftPath = getDraftPath(articleId);
+        return Files.exists(draftPath);
+    }
+
+    @Override
+    public String readDraftFile(Long articleId) {
+        try {
+            Path draftPath = getDraftPath(articleId);
+            if (!Files.exists(draftPath)) {
+                return null;
+            }
+            return Files.readString(draftPath);
+        } catch (IOException e) {
+            log.error("读取草稿文件失败: articleId={}", articleId, e);
+            return null;
+        }
+    }
+
+    @Override
+    public void saveDraftFile(Long articleId, String content) {
+        try {
+            Path draftPath = getDraftPath(articleId);
+            Files.createDirectories(draftPath.getParent());
+            Files.writeString(draftPath, content);
+        } catch (IOException e) {
+            log.error("保存草稿文件失败: articleId={}", articleId, e);
+            throw new BusinessException(ErrorCode.FILE_SYSTEM_ERROR.getCode(), "保存草稿文件失败");
+        }
+    }
+
+    @Override
+    public void deleteDraftFile(Long articleId) {
+        try {
+            Path draftPath = getDraftPath(articleId);
+            if (Files.exists(draftPath)) {
+                Files.delete(draftPath);
+                log.info("删除草稿文件成功: articleId={}", articleId);
+            }
+        } catch (IOException e) {
+            log.error("删除草稿文件失败: articleId={}", articleId, e);
+        }
+    }
+
+    /**
+     * 获取草稿文件路径: articles/{articleId}_draft.md
+     */
+    private Path getDraftPath(Long articleId) {
+        return Paths.get(blogProperties.getData().getPath(), "articles", articleId + "_draft.md");
+    }
+
     /**
      * 获取绝对路径
      */

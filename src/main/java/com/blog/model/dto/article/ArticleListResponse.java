@@ -57,4 +57,7 @@ public class ArticleListResponse {
 
     @Schema(description = "删除时间")
     private LocalDateTime deletedAt;
+
+    @Schema(description = "是否存在未保存的草稿修改")
+    private Boolean hasDraft;
 }
