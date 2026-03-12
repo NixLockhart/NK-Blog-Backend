@@ -4,6 +4,11 @@ import com.blog.common.enums.ErrorCode;
 import com.blog.common.response.Result;
 import com.blog.config.properties.BlogProperties;
 import com.blog.exception.BusinessException;
+import com.blog.service.ImageStorageConfigService;
+import com.blog.service.storage.CdnStorageProvider;
+import com.blog.service.storage.ImageStorageProvider;
+import com.blog.service.storage.ImageUploadResult;
+import com.blog.service.storage.LocalStorageProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -17,7 +22,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -34,9 +38,17 @@ import java.util.UUID;
 public class AdminFileController {
 
     private final BlogProperties blogProperties;
+    private final ImageStorageConfigService imageStorageConfigService;
+    private final LocalStorageProvider localStorageProvider;
+    private final CdnStorageProvider cdnStorageProvider;
 
     private static final List<String> ALLOWED_IMAGE_TYPES = Arrays.asList("image/jpeg", "image/jpg", "image/png");
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+    private ImageStorageProvider activeProvider() {
+        return imageStorageConfigService.isCdnMode()
+                ? cdnStorageProvider : localStorageProvider;
+    }
 
     /**
      * 上传文章封面（按文章ID命名）
@@ -47,39 +59,16 @@ public class AdminFileController {
             @Parameter(description = "文章ID") @PathVariable Long articleId,
             @Parameter(description = "封面图片文件") @RequestParam("file") MultipartFile file) {
 
-        try {
-            validateImageFile(file);
+        validateImageFile(file);
 
-            // 获取文件扩展名
-            String originalFilename = file.getOriginalFilename();
-            String extension = getFileExtension(originalFilename);
+        String originalFilename = file.getOriginalFilename();
+        String extension = getFileExtension(originalFilename);
+        String fileName = articleId + extension;
 
-            // 使用文章ID作为文件名
-            String fileName = articleId + extension;
+        ImageUploadResult result = activeProvider().upload(file, "images/covers", fileName);
+        log.info("上传封面成功: articleId={}, path={}", articleId, result.storedPath());
 
-            // 确保目录存在
-            String coversPath = getCoversPath();
-            Path coversDir = Paths.get(coversPath);
-            if (!Files.exists(coversDir)) {
-                Files.createDirectories(coversDir);
-            }
-
-            // 保存文件（如果文件已存在则覆盖）
-            Path filePath = coversDir.resolve(fileName);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-            // 返回相对路径（相对于 blog.data.path）
-            String relativePath = "images/covers/" + fileName;
-            log.info("上传封面成功: articleId={}, path={}", articleId, relativePath);
-
-            return Result.success(relativePath);
-
-        } catch (BusinessException e) {
-            throw e;
-        } catch (IOException e) {
-            log.error("上传封面失败: articleId={}", articleId, e);
-            throw new BusinessException(ErrorCode.FILE_UPLOAD_ERROR.getCode(), "上传封面失败: " + e.getMessage());
-        }
+        return Result.success(result.storedPath());
     }
 
     /**
@@ -91,39 +80,16 @@ public class AdminFileController {
     public Result<String> uploadCover(
             @Parameter(description = "封面图片文件") @RequestParam("file") MultipartFile file) {
 
-        try {
-            validateImageFile(file);
+        validateImageFile(file);
 
-            // 获取文件扩展名
-            String originalFilename = file.getOriginalFilename();
-            String extension = getFileExtension(originalFilename);
+        String originalFilename = file.getOriginalFilename();
+        String extension = getFileExtension(originalFilename);
+        String fileName = UUID.randomUUID().toString() + extension;
 
-            // 生成唯一文件名
-            String fileName = UUID.randomUUID().toString() + extension;
+        ImageUploadResult result = activeProvider().upload(file, "images/covers", fileName);
+        log.info("上传临时封面成功: {}", result.storedPath());
 
-            // 确保目录存在
-            String coversPath = getCoversPath();
-            Path coversDir = Paths.get(coversPath);
-            if (!Files.exists(coversDir)) {
-                Files.createDirectories(coversDir);
-            }
-
-            // 保存文件
-            Path filePath = coversDir.resolve(fileName);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-            // 返回相对路径（相对于 blog.data.path）
-            String relativePath = "images/covers/" + fileName;
-            log.info("上传临时封面成功: {}", relativePath);
-
-            return Result.success(relativePath);
-
-        } catch (BusinessException e) {
-            throw e;
-        } catch (IOException e) {
-            log.error("上传封面失败", e);
-            throw new BusinessException(ErrorCode.FILE_UPLOAD_ERROR.getCode(), "上传封面失败: " + e.getMessage());
-        }
+        return Result.success(result.storedPath());
     }
 
     /**
@@ -135,42 +101,30 @@ public class AdminFileController {
             @Parameter(description = "文章ID") @PathVariable Long articleId,
             @Parameter(description = "图片文件") @RequestParam("file") MultipartFile file) {
 
-        try {
-            validateImageFile(file);
+        validateImageFile(file);
 
-            // 获取文件扩展名
-            String originalFilename = file.getOriginalFilename();
-            String extension = getFileExtension(originalFilename);
+        String originalFilename = file.getOriginalFilename();
+        String extension = getFileExtension(originalFilename);
 
-            // 获取文章图片目录
-            String imagesPath = getArticleImagesPath(articleId);
-            Path imagesDir = Paths.get(imagesPath);
-            if (!Files.exists(imagesDir)) {
-                Files.createDirectories(imagesDir);
+        // 计算下一个序号（仅本地模式需要序号，CDN 模式直接用 UUID）
+        String fileName;
+        if (imageStorageConfigService.isCdnMode()) {
+            fileName = articleId + "-" + UUID.randomUUID().toString().substring(0, 8) + extension;
+        } else {
+            Path imagesDir = Paths.get(blogProperties.getData().getPath(), "images", String.valueOf(articleId));
+            try {
+                int nextNumber = getNextImageNumber(imagesDir, articleId, extension);
+                fileName = articleId + "-" + nextNumber + extension;
+            } catch (IOException e) {
+                log.error("获取图片序号失败", e);
+                throw new BusinessException(ErrorCode.FILE_UPLOAD_ERROR.getCode(), "上传文章图片失败");
             }
-
-            // 计算下一个序号
-            int nextNumber = getNextImageNumber(imagesDir, articleId, extension);
-
-            // 生成文件名: articleId-序号.扩展名
-            String fileName = articleId + "-" + nextNumber + extension;
-
-            // 保存文件
-            Path filePath = imagesDir.resolve(fileName);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-            // 返回相对路径（相对于 blog.data.path）
-            String relativePath = "images/" + articleId + "/" + fileName;
-            log.info("上传文章图片成功: {}", relativePath);
-
-            return Result.success(relativePath);
-
-        } catch (BusinessException e) {
-            throw e;
-        } catch (IOException e) {
-            log.error("上传文章图片失败", e);
-            throw new BusinessException(ErrorCode.FILE_UPLOAD_ERROR.getCode(), "上传文章图片失败: " + e.getMessage());
         }
+
+        ImageUploadResult result = activeProvider().upload(file, "images/" + articleId, fileName);
+        log.info("上传文章图片成功: {}", result.storedPath());
+
+        return Result.success(result.storedPath());
     }
 
     /**
@@ -181,13 +135,11 @@ public class AdminFileController {
             throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "请选择要上传的文件");
         }
 
-        // 检查文件大小
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new BusinessException(ErrorCode.FILE_SIZE_EXCEEDED.getCode(),
                     "文件大小超过限制（最大10MB）");
         }
 
-        // 检查文件类型
         String contentType = file.getContentType();
         if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType.toLowerCase())) {
             throw new BusinessException(ErrorCode.FILE_TYPE_NOT_ALLOWED.getCode(),
@@ -200,45 +152,29 @@ public class AdminFileController {
      */
     private String getFileExtension(String filename) {
         if (filename == null || filename.lastIndexOf('.') == -1) {
-            return ".jpg"; // 默认
+            return ".jpg";
         }
         return filename.substring(filename.lastIndexOf('.')).toLowerCase();
-    }
-
-    /**
-     * 获取封面图片目录路径
-     */
-    private String getCoversPath() {
-        return blogProperties.getData().getPath() + "/images/covers";
-    }
-
-    /**
-     * 获取文章图片目录路径
-     */
-    private String getArticleImagesPath(Long articleId) {
-        return blogProperties.getData().getPath() + "/images/" + articleId;
     }
 
     /**
      * 获取下一个图片序号
      */
     private int getNextImageNumber(Path directory, Long articleId, String extension) throws IOException {
-        // 查找当前已存在的最大序号
         int maxNumber = 0;
 
         if (Files.exists(directory)) {
             String prefix = articleId + "-";
             var files = Files.list(directory)
                     .filter(path -> {
-                        String fileName = path.getFileName().toString();
-                        return fileName.startsWith(prefix) && fileName.endsWith(extension);
+                        String name = path.getFileName().toString();
+                        return name.startsWith(prefix) && name.endsWith(extension);
                     })
                     .toList();
 
-            for (Path file : files) {
-                String fileName = file.getFileName().toString();
-                // 提取序号: articleId-序号.extension
-                String numberPart = fileName.substring(prefix.length(), fileName.lastIndexOf('.'));
+            for (Path f : files) {
+                String name = f.getFileName().toString();
+                String numberPart = name.substring(prefix.length(), name.lastIndexOf('.'));
                 try {
                     int number = Integer.parseInt(numberPart);
                     maxNumber = Math.max(maxNumber, number);

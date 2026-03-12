@@ -3,8 +3,10 @@ package com.blog.controller.admin;
 import com.blog.common.response.Result;
 import com.blog.model.dto.config.ConfigCreateRequest;
 import com.blog.model.dto.config.ConfigUpdateRequest;
+import com.blog.model.dto.config.ImageStorageConfig;
 import com.blog.model.dto.config.SiteConfigResponse;
 import com.blog.service.ConfigService;
+import com.blog.service.ImageStorageConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -27,6 +29,7 @@ import java.util.List;
 public class AdminConfigController {
 
     private final ConfigService configService;
+    private final ImageStorageConfigService imageStorageConfigService;
 
     @Operation(summary = "获取所有配置", description = "获取所有网站配置项")
     @GetMapping
@@ -73,6 +76,21 @@ public class AdminConfigController {
     public Result<Void> deleteConfig(@PathVariable String key) {
         log.info("管理员删除配置: {}", key);
         configService.deleteConfig(key);
+        return Result.success();
+    }
+
+    @Operation(summary = "获取图片存储配置", description = "获取图片存储模式和图床配置")
+    @GetMapping("/image-storage")
+    public Result<ImageStorageConfig> getImageStorageConfig() {
+        log.info("获取图片存储配置");
+        return Result.success(imageStorageConfigService.getConfig());
+    }
+
+    @Operation(summary = "更新图片存储配置", description = "更新图片存储模式和图床配置")
+    @PutMapping("/image-storage")
+    public Result<Void> updateImageStorageConfig(@RequestBody ImageStorageConfig config) {
+        log.info("更新图片存储配置: mode={}", config.getMode());
+        imageStorageConfigService.updateConfig(config);
         return Result.success();
     }
 }

@@ -118,6 +118,8 @@ public class CategoryServiceImpl implements CategoryService {
 
         categoryRepository.delete(category);
 
+
+
         log.info("删除分类成功: id={}, name={}, deleteArticles={}", id, category.getName(), deleteArticles);
     }
 
